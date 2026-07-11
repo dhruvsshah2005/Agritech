@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useLanguage } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +13,7 @@ import {
 type CropKey = 'wheat' | 'rice' | 'cotton'
 
 export default function Crops() {
+  const { t } = useLanguage()
   const [selectedCrop, setSelectedCrop] = useState<CropKey>('wheat')
 
   const crops = {
@@ -92,17 +94,17 @@ export default function Crops() {
   ]
 
   const stages = [
-    { name: 'Germination', date: 'Oct 15 - Oct 30', icon: Sprout, completed: true },
-    { name: 'Vegetative', date: 'Oct 30 - Jan 15', icon: Leaf, completed: true },
-    { name: 'Reproductive', date: 'Jan 15 - Feb 20', icon: Wheat, completed: false },
-    { name: 'Maturity', date: 'Feb 20 - Mar 20', icon: Target, completed: false },
+    { name: t('sowing'), date: 'Oct 15 - Oct 30', icon: Sprout, completed: true },
+    { name: t('vegetative'), date: 'Oct 30 - Jan 15', icon: Leaf, completed: true },
+    { name: t('flowering'), date: 'Jan 15 - Feb 20', icon: Wheat, completed: false },
+    { name: t('harvest'), date: 'Feb 20 - Mar 20', icon: Target, completed: false },
   ]
 
   const infoItems = [
-    { label: 'Season', value: currentCrop.season, icon: Sun, color: 'bg-amber-500/10', iconColor: 'text-amber-600' },
-    { label: 'Sowing Date', value: currentCrop.sowingDate, icon: Calendar, color: 'bg-blue-500/10', iconColor: 'text-blue-600' },
-    { label: 'Harvest Estimate', value: currentCrop.expectedHarvest, icon: Scissors, color: 'bg-emerald-500/10', iconColor: 'text-emerald-600' },
-    { label: 'Target Yield', value: currentCrop.yieldExpectation, icon: TrendingUp, color: 'bg-purple-500/10', iconColor: 'text-purple-600' },
+    { label: t('season'), value: currentCrop.season, icon: Sun, color: 'bg-amber-500/10', iconColor: 'text-amber-600' },
+    { label: t('sowingDate'), value: currentCrop.sowingDate, icon: Calendar, color: 'bg-blue-500/10', iconColor: 'text-blue-600' },
+    { label: t('harvestEstimate'), value: currentCrop.expectedHarvest, icon: Scissors, color: 'bg-emerald-500/10', iconColor: 'text-emerald-600' },
+    { label: t('targetYield'), value: currentCrop.yieldExpectation, icon: TrendingUp, color: 'bg-purple-500/10', iconColor: 'text-purple-600' },
   ]
 
   const getStatusBadge = (status: string) => {
@@ -129,7 +131,7 @@ export default function Crops() {
               <Leaf className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold">Crop Management</h1>
+              <h1 className="text-3xl md:text-4xl font-bold">{t('crops')}</h1>
               <p className="text-lg text-white/80">Monitor and manage your crops</p>
             </div>
           </div>
@@ -155,7 +157,7 @@ export default function Crops() {
                   <CropIcon className="w-7 h-7 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-lg text-foreground">{crops[key].name}</p>
+                  <p className="font-bold text-lg text-foreground">{t(key)}</p>
                   <p className="text-sm text-primary font-medium">{crops[key].hindiName}</p>
                 </div>
                 {selectedCrop === key && (
@@ -192,7 +194,7 @@ export default function Crops() {
                 <currentCrop.icon className="w-8 h-8 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl md:text-3xl">{currentCrop.name}</CardTitle>
+                <CardTitle className="text-2xl md:text-3xl">{t(selectedCrop)}</CardTitle>
                 <CardDescription className="text-lg font-medium text-primary">{currentCrop.hindiName}</CardDescription>
               </div>
             </div>
@@ -209,7 +211,7 @@ export default function Crops() {
           {/* Growth Timeline — Horizontal Stepper */}
           <div className="animate-fade-in-up">
             <h3 className="font-bold text-lg mb-6 flex items-center gap-2 gradient-text">
-              Growth Timeline
+              {t('growthTimeline')}
             </h3>
             <div className="relative">
               <div className="flex items-start justify-between">
@@ -268,9 +270,8 @@ export default function Crops() {
         </CardContent>
       </Card>
 
-      {/* Care Guide */}
       <div className="animate-fade-in-up">
-        <h2 className="text-2xl font-bold mb-5 gradient-text">Care Guide</h2>
+        <h2 className="text-2xl font-bold mb-5 gradient-text">{t('careGuide')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {careGuide.map((guide, idx) => {
             const Icon = guide.icon
@@ -303,13 +304,7 @@ export default function Crops() {
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-4 pt-4 border-t border-border animate-fade-in-up">
         <Button className="gradient-primary text-white hover:opacity-90 shadow-lg shadow-primary/20 rounded-xl px-6">
-          Record Observation
-        </Button>
-        <Button variant="outline" className="hover-lift rounded-xl px-6 border-primary/20 hover:bg-primary/5">
-          Get Expert Advice
-        </Button>
-        <Button variant="outline" className="hover-lift rounded-xl px-6 border-secondary/40 hover:bg-secondary/10">
-          View Market Prices
+          {t('recordObservation')}
         </Button>
       </div>
     </div>

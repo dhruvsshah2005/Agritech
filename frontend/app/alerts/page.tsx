@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useLanguage } from '@/lib/i18n'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -10,12 +11,13 @@ import {
 } from 'lucide-react'
 
 export default function Alerts() {
+  const { t } = useLanguage()
   const [alerts, setAlerts] = useState([
     {
       id: 1,
       type: 'weather',
       severity: 'high',
-      title: 'Monsoon Alert',
+      title: t('monsoonAlert'),
       description: 'Heavy rainfall expected in 2 days. Prepare for potential waterlogging in low-lying areas.',
       timestamp: '2 hours ago',
       icon: Cloud,
@@ -25,7 +27,7 @@ export default function Alerts() {
       id: 2,
       type: 'pest',
       severity: 'medium',
-      title: 'Armyworm Detected',
+      title: t('pestWarning'),
       description: 'Armyworm activity reported in your district. Begin preventive measures immediately.',
       timestamp: '5 hours ago',
       icon: Bug,
@@ -190,7 +192,7 @@ export default function Alerts() {
               <Bell className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold">Alerts & Notifications</h1>
+              <h1 className="text-3xl md:text-4xl font-bold">{t('alerts')}</h1>
               <p className="text-lg text-white/80">Stay informed about weather, pests, and crop health</p>
             </div>
           </div>
@@ -202,7 +204,7 @@ export default function Alerts() {
         <div className="glass-card hover-lift rounded-2xl p-6 animate-fade-in-up stagger-1">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground font-medium mb-1">Total Alerts</p>
+              <p className="text-sm text-muted-foreground font-medium mb-1">{t('totalAlerts')}</p>
               <p className="text-3xl font-bold text-foreground stat-value">{alerts.length}</p>
             </div>
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -214,7 +216,7 @@ export default function Alerts() {
         <div className="glass-card hover-lift rounded-2xl p-6 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground font-medium mb-1">High Priority</p>
+              <p className="text-sm text-muted-foreground font-medium mb-1">{t('highPriority')}</p>
               <p className="text-3xl font-bold text-destructive stat-value">{highCount}</p>
             </div>
             <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
@@ -226,7 +228,7 @@ export default function Alerts() {
         <div className="glass-card hover-lift rounded-2xl p-6 animate-fade-in-up stagger-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground font-medium mb-1">Unread</p>
+              <p className="text-sm text-muted-foreground font-medium mb-1">{t('unreadAlerts')}</p>
               <p className="text-3xl font-bold text-accent stat-value">{unreadCount}</p>
             </div>
             <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
@@ -240,10 +242,10 @@ export default function Alerts() {
       <Tabs defaultValue="all" className="w-full animate-fade-in-up">
         <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
           <TabsList className="grid grid-cols-4 w-full sm:w-auto sm:flex">
-            <TabsTrigger value="all" className="rounded-lg">All</TabsTrigger>
-            <TabsTrigger value="unread" className="rounded-lg">Unread ({unreadCount})</TabsTrigger>
-            <TabsTrigger value="weather" className="rounded-lg">Weather</TabsTrigger>
-            <TabsTrigger value="crop" className="rounded-lg">Crop</TabsTrigger>
+            <TabsTrigger value="all" className="rounded-lg">{t('all')}</TabsTrigger>
+            <TabsTrigger value="unread" className="rounded-lg">{t('unread')} ({unreadCount})</TabsTrigger>
+            <TabsTrigger value="weather" className="rounded-lg">{t('weather')}</TabsTrigger>
+            <TabsTrigger value="crop" className="rounded-lg">{t('crops')}</TabsTrigger>
           </TabsList>
           {unreadCount > 0 && (
             <Button
@@ -253,7 +255,7 @@ export default function Alerts() {
               className="gap-2 rounded-xl hover:bg-primary/5 hover:border-primary/30"
             >
               <CheckCheck className="w-4 h-4" />
-              Mark All as Read
+              {t('markAllRead')}
             </Button>
           )}
         </div>

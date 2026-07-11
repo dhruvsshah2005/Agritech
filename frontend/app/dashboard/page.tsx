@@ -42,7 +42,7 @@ export default function Dashboard() {
 
   const stats = [
     {
-      label: 'Temperature',
+      label: t('temperature'),
       value: '32°C',
       icon: Sun,
       trend: '↑ 2°',
@@ -53,7 +53,7 @@ export default function Dashboard() {
       iconBg: 'bg-orange-500/15',
     },
     {
-      label: 'Humidity',
+      label: t('humidity'),
       value: '65%',
       icon: Droplets,
       trend: '↑ 5%',
@@ -64,7 +64,7 @@ export default function Dashboard() {
       iconBg: 'bg-blue-500/15',
     },
     {
-      label: 'Wind Speed',
+      label: t('windSpeed'),
       value: '12 km/h',
       icon: Wind,
       trend: '↓ 3',
@@ -75,7 +75,7 @@ export default function Dashboard() {
       iconBg: 'bg-teal-500/15',
     },
     {
-      label: 'Rainfall',
+      label: t('rainfall'),
       value: '2.5 mm',
       icon: Cloud,
       trend: '↑ 1.2',
@@ -89,25 +89,25 @@ export default function Dashboard() {
 
   const quickActions = [
     {
-      label: 'Scan Crop Disease',
+      label: t('scanCropDisease'),
       icon: Camera,
       href: '/voice-assistant?mode=scan',
       gradient: 'from-rose-500 to-pink-600',
     },
     {
-      label: 'AI Voice Chat',
+      label: t('aiVoiceChat'),
       icon: Mic,
       href: '/voice-assistant',
       gradient: 'from-violet-500 to-purple-600',
     },
     {
-      label: 'Check Weather',
+      label: t('checkWeather'),
       icon: Cloud,
       href: '/weather',
       gradient: 'from-sky-500 to-blue-600',
     },
     {
-      label: 'Crop Guide',
+      label: t('cropGuide'),
       icon: Sprout,
       href: '/crops',
       gradient: 'from-emerald-500 to-green-600',
@@ -116,12 +116,12 @@ export default function Dashboard() {
 
   const alerts = [
     {
-      title: 'Monsoon Alert',
+      title: t('monsoonAlert'),
       description: 'Heavy rainfall expected in 2 days',
       severity: 'high' as const,
     },
     {
-      title: 'Pest Warning',
+      title: t('pestWarning'),
       description: 'Armyworm activity detected in your district',
       severity: 'medium' as const,
     },
@@ -193,7 +193,7 @@ export default function Dashboard() {
       <div>
         <h2 className="text-xl font-bold mb-4 text-foreground flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-primary" />
-          Weather Snapshot
+          {t('weatherSnapshot')}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => {
@@ -237,7 +237,7 @@ export default function Dashboard() {
       <div>
         <h2 className="text-xl font-bold mb-4 text-foreground flex items-center gap-2">
           <Sprout className="w-5 h-5 text-primary" />
-          Quick Actions
+          {t('quickActions')}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {quickActions.map((action, index) => {
@@ -268,7 +268,7 @@ export default function Dashboard() {
       <div>
         <h2 className="text-xl font-bold mb-4 text-foreground flex items-center gap-2">
           <AlertCircle className="w-5 h-5 text-destructive" />
-          Active Alerts
+          {t('activeAlerts')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {alerts.map((alert, idx) => (
@@ -334,7 +334,7 @@ export default function Dashboard() {
               <TrendingUp className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <span className="gradient-text">Today&apos;s Recommendations</span>
+              <span className="gradient-text">{t('todayRecommendations')}</span>
               <p className="text-xs font-normal text-muted-foreground mt-0.5">
                 Based on your location and current conditions
               </p>
