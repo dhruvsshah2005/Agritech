@@ -1,10 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AlertCircle, Bug, Cloud, Droplets, TrendingUp, X, Bell, CheckCircle } from 'lucide-react'
+import {
+  AlertCircle, Bug, Cloud, Droplets, TrendingUp, X, Bell,
+  CheckCircle, CheckCheck, Leaf, ShieldCheck
+} from 'lucide-react'
 
 export default function Alerts() {
   const [alerts, setAlerts] = useState([
@@ -68,217 +71,219 @@ export default function Alerts() {
     setAlerts(alerts.map((a) => (a.id === id ? { ...a, read: true } : a)))
   }
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'high':
-        return 'bg-red-50 border-red-300'
-      case 'medium':
-        return 'bg-yellow-50 border-yellow-300'
-      case 'low':
-        return 'bg-blue-50 border-blue-300'
-      default:
-        return 'bg-muted'
-    }
+  const markAllAsRead = () => {
+    setAlerts(alerts.map((a) => ({ ...a, read: true })))
   }
 
-  const getSeverityBadgeColor = (severity: string) => {
+  const getSeverityStyles = (severity: string) => {
     switch (severity) {
       case 'high':
-        return 'bg-red-600 text-white'
+        return {
+          card: 'border-l-4 border-l-destructive bg-destructive/5',
+          badge: 'bg-destructive/15 text-destructive border border-destructive/20',
+          iconBg: 'bg-destructive/10',
+          iconColor: 'text-destructive',
+        }
       case 'medium':
-        return 'bg-yellow-600 text-white'
+        return {
+          card: 'border-l-4 border-l-secondary bg-secondary/5',
+          badge: 'bg-secondary/15 text-secondary-foreground border border-secondary/20',
+          iconBg: 'bg-secondary/10',
+          iconColor: 'text-secondary-foreground',
+        }
       case 'low':
-        return 'bg-blue-600 text-white'
+        return {
+          card: 'border-l-4 border-l-accent bg-accent/5',
+          badge: 'bg-accent/15 text-accent-foreground border border-accent/20',
+          iconBg: 'bg-accent/10',
+          iconColor: 'text-accent',
+        }
       default:
-        return 'bg-primary'
+        return {
+          card: 'border-l-4 border-l-border bg-muted/5',
+          badge: 'bg-muted text-muted-foreground',
+          iconBg: 'bg-muted',
+          iconColor: 'text-muted-foreground',
+        }
     }
   }
 
   const unreadCount = alerts.filter((a) => !a.read).length
+  const highCount = alerts.filter((a) => a.severity === 'high').length
+
+  const renderAlertCard = (alert: typeof alerts[0], idx: number) => {
+    const Icon = alert.icon
+    const styles = getSeverityStyles(alert.severity)
+    return (
+      <Card
+        key={alert.id}
+        className={`${styles.card} rounded-xl overflow-hidden animate-fade-in-up stagger-${Math.min(idx + 1, 6)} transition-all duration-300 hover:shadow-md ${
+          alert.read ? 'opacity-65' : ''
+        }`}
+      >
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-4 flex-1">
+              <div className={`w-11 h-11 rounded-xl ${styles.iconBg} flex items-center justify-center shrink-0`}>
+                <Icon className={`w-5 h-5 ${styles.iconColor}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <p className="font-bold text-foreground">{alert.title}</p>
+                  <span className={`text-xs font-semibold rounded-full px-3 py-1 ${styles.badge}`}>
+                    {alert.severity === 'high' ? 'High' : alert.severity === 'medium' ? 'Medium' : 'Low'}
+                  </span>
+                  {alert.read && (
+                    <CheckCircle className="w-4 h-4 text-primary" />
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mb-2 leading-relaxed">{alert.description}</p>
+                <p className="text-xs text-muted-foreground/70">{alert.timestamp}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {!alert.read && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markAsRead(alert.id)}
+                  className="whitespace-nowrap text-xs rounded-lg hover:bg-primary/5 hover:border-primary/30"
+                >
+                  Mark Read
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => dismissAlert(alert.id)}
+                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderEmptyState = (message: string) => (
+    <Card className="glass-card rounded-2xl animate-fade-in">
+      <CardContent className="pt-6 text-center py-16">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <Leaf className="w-10 h-10 text-primary" />
+        </div>
+        <p className="font-bold text-lg text-foreground mb-1">All caught up!</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </CardContent>
+    </Card>
+  )
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg p-8">
-        <h1 className="text-3xl font-bold mb-2">Alerts & Notifications</h1>
-        <p className="text-lg opacity-90">Stay informed about weather, pests, and crop health</p>
+    <div className="p-4 space-y-8 max-w-7xl mx-auto">
+      {/* Hero Header */}
+      <div className="gradient-hero text-white rounded-2xl p-8 md:p-10 shadow-xl animate-fade-in relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNCI+PHBhdGggZD0iTTM2IDM0djZoLTJ2LTZoMnptMC0yaDJ2LTRoLTJ2NHptLTItNGgtMnYyaDJ2LTJ6bTQgMHYyaDJ2LTJoLTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
+              <Bell className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold">Alerts & Notifications</h1>
+              <p className="text-lg text-white/80">Stay informed about weather, pests, and crop health</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Alert Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Alerts</p>
-                <p className="text-3xl font-bold text-foreground">{alerts.length}</p>
-              </div>
-              <Bell className="w-10 h-10 text-primary opacity-70" />
+      {/* Alert Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="glass-card hover-lift rounded-2xl p-6 animate-fade-in-up stagger-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium mb-1">Total Alerts</p>
+              <p className="text-3xl font-bold text-foreground stat-value">{alerts.length}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Bell className="w-7 h-7 text-primary" />
+            </div>
+          </div>
+        </div>
 
-        <Card className="border-red-300/50 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-red-900">High Priority</p>
-                <p className="text-3xl font-bold text-red-600">{alerts.filter((a) => a.severity === 'high').length}</p>
-              </div>
-              <AlertCircle className="w-10 h-10 text-red-600 opacity-70" />
+        <div className="glass-card hover-lift rounded-2xl p-6 animate-fade-in-up stagger-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium mb-1">High Priority</p>
+              <p className="text-3xl font-bold text-destructive stat-value">{highCount}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+              <AlertCircle className="w-7 h-7 text-destructive" />
+            </div>
+          </div>
+        </div>
 
-        <Card className="border-blue-300/50 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-900">Unread</p>
-                <p className="text-3xl font-bold text-blue-600">{unreadCount}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
-                {unreadCount}
-              </div>
+        <div className="glass-card hover-lift rounded-2xl p-6 animate-fade-in-up stagger-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium mb-1">Unread</p>
+              <p className="text-3xl font-bold text-accent stat-value">{unreadCount}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
+              <ShieldCheck className="w-7 h-7 text-accent" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Alerts List */}
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="unread">Unread ({unreadCount})</TabsTrigger>
-          <TabsTrigger value="weather">Weather</TabsTrigger>
-          <TabsTrigger value="crop">Crop</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4 mt-4">
-          {alerts.map((alert) => {
-            const Icon = alert.icon
-            return (
-              <Card key={alert.id} className={`border-2 ${getSeverityColor(alert.severity)} ${alert.read ? 'opacity-70' : ''}`}>
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex gap-4 flex-1">
-                      <Icon className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-bold text-foreground">{alert.title}</p>
-                          <span className={`text-xs px-2 py-1 rounded-full ${getSeverityBadgeColor(alert.severity)}`}>
-                            {alert.severity === 'high' ? 'High' : alert.severity === 'medium' ? 'Medium' : 'Low'}
-                          </span>
-                          {alert.read && (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">{alert.description}</p>
-                        <p className="text-xs text-muted-foreground">{alert.timestamp}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      {!alert.read && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => markAsRead(alert.id)}
-                          className="whitespace-nowrap"
-                        >
-                          Mark Read
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => dismissAlert(alert.id)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </TabsContent>
-
-        <TabsContent value="unread" className="space-y-4 mt-4">
-          {alerts.filter((a) => !a.read).length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center py-12">
-                <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
-                <p className="font-semibold text-foreground">All caught up!</p>
-                <p className="text-sm text-muted-foreground">You have no unread alerts</p>
-              </CardContent>
-            </Card>
-          ) : (
-            alerts.filter((a) => !a.read).map((alert) => {
-              const Icon = alert.icon
-              return (
-                <Card key={alert.id} className={`border-2 ${getSeverityColor(alert.severity)}`}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex gap-4 flex-1">
-                        <Icon className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
-                        <div className="flex-1">
-                          <p className="font-bold text-foreground mb-1">{alert.title}</p>
-                          <p className="text-sm text-foreground mb-2">{alert.description}</p>
-                          <p className="text-xs text-muted-foreground">{alert.timestamp}</p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => dismissAlert(alert.id)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })
+      {/* Alerts List with Tabs */}
+      <Tabs defaultValue="all" className="w-full animate-fade-in-up">
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+          <TabsList className="grid grid-cols-4 w-full sm:w-auto sm:flex">
+            <TabsTrigger value="all" className="rounded-lg">All</TabsTrigger>
+            <TabsTrigger value="unread" className="rounded-lg">Unread ({unreadCount})</TabsTrigger>
+            <TabsTrigger value="weather" className="rounded-lg">Weather</TabsTrigger>
+            <TabsTrigger value="crop" className="rounded-lg">Crop</TabsTrigger>
+          </TabsList>
+          {unreadCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={markAllAsRead}
+              className="gap-2 rounded-xl hover:bg-primary/5 hover:border-primary/30"
+            >
+              <CheckCheck className="w-4 h-4" />
+              Mark All as Read
+            </Button>
           )}
+        </div>
+
+        <TabsContent value="all" className="space-y-4 mt-0">
+          {alerts.length === 0
+            ? renderEmptyState('No alerts at this time')
+            : alerts.map((alert, idx) => renderAlertCard(alert, idx))
+          }
         </TabsContent>
 
-        <TabsContent value="weather" className="space-y-4 mt-4">
-          {alerts.filter((a) => a.type === 'weather').map((alert) => {
-            const Icon = alert.icon
-            return (
-              <Card key={alert.id} className={`border-2 ${getSeverityColor(alert.severity)}`}>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <Icon className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
-                    <div className="flex-1">
-                      <p className="font-bold text-foreground mb-1">{alert.title}</p>
-                      <p className="text-sm text-foreground mb-2">{alert.description}</p>
-                      <p className="text-xs text-muted-foreground">{alert.timestamp}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+        <TabsContent value="unread" className="space-y-4 mt-0">
+          {alerts.filter((a) => !a.read).length === 0
+            ? renderEmptyState('You have no unread alerts')
+            : alerts.filter((a) => !a.read).map((alert, idx) => renderAlertCard(alert, idx))
+          }
         </TabsContent>
 
-        <TabsContent value="crop" className="space-y-4 mt-4">
-          {alerts.filter((a) => a.type === 'crop' || a.type === 'pest').map((alert) => {
-            const Icon = alert.icon
-            return (
-              <Card key={alert.id} className={`border-2 ${getSeverityColor(alert.severity)}`}>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <Icon className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
-                    <div className="flex-1">
-                      <p className="font-bold text-foreground mb-1">{alert.title}</p>
-                      <p className="text-sm text-foreground mb-2">{alert.description}</p>
-                      <p className="text-xs text-muted-foreground">{alert.timestamp}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+        <TabsContent value="weather" className="space-y-4 mt-0">
+          {alerts.filter((a) => a.type === 'weather').length === 0
+            ? renderEmptyState('No weather alerts right now')
+            : alerts.filter((a) => a.type === 'weather').map((alert, idx) => renderAlertCard(alert, idx))
+          }
+        </TabsContent>
+
+        <TabsContent value="crop" className="space-y-4 mt-0">
+          {alerts.filter((a) => a.type === 'crop' || a.type === 'pest').length === 0
+            ? renderEmptyState('No crop or pest alerts at this time')
+            : alerts.filter((a) => a.type === 'crop' || a.type === 'pest').map((alert, idx) => renderAlertCard(alert, idx))
+          }
         </TabsContent>
       </Tabs>
     </div>

@@ -10,6 +10,7 @@
     "run": "node -r ts-node/register Start.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@openai/agents": "^0.4.1",
     "@supabase/supabase-js": "^2.91.0",
     "@types/express": "^5.0.6",

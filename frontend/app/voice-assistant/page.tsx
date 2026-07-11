@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Mic, Send, Square } from 'lucide-react'
-import { RealtimeAgent, RealtimeSession } from "@openai/agents/realtime"
+import { Mic, Send, Square, Camera } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n'
 
 // --- 1. The Reactive Audio Visualizer Component ---
 const ReactiveAudioVisualizer = ({
@@ -22,53 +22,81 @@ const ReactiveAudioVisualizer = ({
   const BAR_COUNT = 10;
 
   useEffect(() => {
-    // Guard Clause: Stop animation if no analyser or state is idle
-    if (!analyser || (!isPlaying && !isRecording)) {
+    // Guard Clause: Stop animation if no states are active
+    if (!isPlaying && !isRecording) {
       if (containerRef.current) containerRef.current.style.transform = `scale(1)`;
-
       barRefs.current.forEach(bar => {
         if (bar) {
           bar.style.height = '10%';
           bar.style.opacity = '0.3';
         }
       });
-
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       return;
     }
 
-    // Setup Frequency Data Buffer
+    if (!analyser) {
+      if (isPlaying) {
+        // Simulate volume wave oscillations for Text-to-Speech playback visualizer
+        const renderSimulatedFrame = () => {
+          animationRef.current = requestAnimationFrame(renderSimulatedFrame);
+          const halfCount = BAR_COUNT / 2;
+          let totalVolume = 0;
+          for (let i = 0; i < halfCount; i++) {
+            const value = Math.floor(Math.sin(Date.now() * 0.008 + i) * 50 + 90 + Math.random() * 30);
+            totalVolume += value;
+            const height_right = Math.max(10, (value / 255) * 50);
+            const height_left = Math.max(10, (value / 255) * 35);
+            const opacity = 0.4 + (value / 255) * 0.6;
+            const leftIndex = halfCount - 1 - i;
+            const rightIndex = halfCount + i;
+            if (barRefs.current[leftIndex]) {
+              barRefs.current[leftIndex].style.height = `${height_right}%`;
+              barRefs.current[leftIndex].style.opacity = `${opacity}`;
+            }
+            if (barRefs.current[rightIndex]) {
+              barRefs.current[rightIndex].style.height = `${height_left}%`;
+              barRefs.current[rightIndex].style.opacity = `${opacity}`;
+            }
+          }
+          const avgVolume = totalVolume / halfCount;
+          const scale = 1 + (avgVolume / 255) * 0.2;
+          if (containerRef.current) {
+            containerRef.current.style.transform = `scale(${scale})`;
+          }
+        };
+        renderSimulatedFrame();
+        return () => {
+          if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+      }
+      return;
+    }
+
+    // Setup Frequency Data Buffer for microphone
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
     const renderFrame = () => {
-      // Stop if context was closed externally
       if (analyser.context.state === 'closed') return;
-
       animationRef.current = requestAnimationFrame(renderFrame);
 
-      // Get FFT (Frequency) Data: 0 - 255
       analyser.getByteFrequencyData(dataArray);
 
       let totalVolume = 0;
       const halfCount = BAR_COUNT / 2;
 
-      // Render Bars (Mirrored Center-Out)
       for (let i = 0; i < halfCount; i++) {
-        // With 24kHz sample rate & fftSize 64, the first few bins cover the
-        // core human vocal range.
         const value = dataArray[i] || 0;
         totalVolume += value;
 
-        // Calculate heights with max caps
-        const height_right = Math.max(10, (value / 255) * 50); // Max 50%
-        const height_left = Math.max(10, (value / 255) * 35);  // Max 35%
+        const height_right = Math.max(10, (value / 255) * 50);
+        const height_left = Math.max(10, (value / 255) * 35);
         const opacity = 0.4 + (value / 255) * 0.6;
 
         const leftIndex = halfCount - 1 - i;
         const rightIndex = halfCount + i;
 
-        // Apply changes directly to DOM for performance
         if (barRefs.current[leftIndex]) {
           barRefs.current[leftIndex].style.height = `${height_right}%`;
           barRefs.current[leftIndex].style.opacity = `${opacity}`;
@@ -79,7 +107,6 @@ const ReactiveAudioVisualizer = ({
         }
       }
 
-      // Subtle "Pulse" Scale Effect
       const avgVolume = totalVolume / halfCount;
       const scale = 1 + (avgVolume / 255) * 0.2;
 
@@ -106,10 +133,8 @@ const ReactiveAudioVisualizer = ({
         ref={containerRef}
         className="relative w-24 h-24 rounded-full bg-white/20 backdrop-blur-xl border-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)] flex items-center justify-center overflow-hidden transition-transform duration-75 will-change-transform"
       >
-        {/* Glow Background */}
         <div className="absolute inset-0 bg-radial-gradient from-blue-400/20 to-transparent pointer-events-none" />
 
-        {/* Bars Container */}
         <div className="flex items-center justify-center gap-[3px] h-full w-full px-2">
           {[...Array(BAR_COUNT)].map((_, i) => (
             <div
@@ -128,28 +153,131 @@ const ReactiveAudioVisualizer = ({
 
 // --- 2. Main Voice Assistant Component ---
 export default function VoiceAssistant() {
+  const { language, t } = useLanguage()
+
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null)
+  const [ttsSupported, setTtsSupported] = useState(true)
+  const [speechError, setSpeechError] = useState<string | null>(null)
 
-  const [messages, setMessages] = useState([
-    { type: 'assistant', text: 'नमस्ते! मैं किसान सहायक हूँ। आप मुझसे कुछ भी पूछ सकते हैं।' },
-  ])
+  const [messages, setMessages] = useState<{ type: string; text: string; image?: string }[]>([])
   const [input, setInput] = useState('')
+  const [analyzingImage, setAnalyzingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // --- 1. NEW: Scroll Reference ---
+  // Image Upload and Disease Analysis Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64Data = reader.result as string;
+
+      // Add user message with image preview
+      setMessages(prev => [...prev, {
+        type: 'user',
+        text: 'Uploaded crop image for diagnosis.',
+        image: base64Data
+      }]);
+
+      // Add assistant thinking placeholder
+      setMessages(prev => [...prev, {
+        type: 'assistant',
+        text: 'Analyzing leaf image for pathology...'
+      }]);
+
+      setAnalyzingImage(true);
+
+      try {
+        const response = await fetch("http://localhost:3000/api/plant-disease/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64Data, language })
+        });
+
+        const data = await response.json();
+        const analysisResult = data.diagnosis || data.analysis || "I could not analyze the image. Please try again.";
+
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            type: "assistant",
+            text: analysisResult
+          };
+          return updated;
+        });
+
+        speakText(analysisResult);
+      } catch (err) {
+        console.error("Pathology analysis failed:", err);
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            type: "assistant",
+            text: "Failed to connect to image analysis service. Please try again later."
+          };
+          return updated;
+        });
+      } finally {
+        setAnalyzingImage(false);
+      }
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // Sync greeting translation on language updates
+  useEffect(() => {
+    setMessages([
+      { type: 'assistant', text: t('voiceGreeting') }
+    ])
+  }, [language, t])
+
+  // Automatically trigger image upload if mode=scan query parameter is present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'scan') {
+        setTimeout(() => {
+          fileInputRef.current?.click();
+        }, 800);
+      }
+    }
+  }, []);
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
-  const sessionRef = useRef<RealtimeSession | null>(null)
+  const recognitionRef = useRef<any>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
 
-  // --- 2. NEW: Auto-Scroll Logic ---
+  // Map settings language to browser STT/TTS locale
+  const localeMap: Record<string, string> = {
+    hi: 'hi-IN',
+    en: 'en-US',
+    bn: 'bn-IN',
+    te: 'te-IN',
+    mr: 'mr-IN',
+    ta: 'ta-IN',
+    gu: 'gu-IN',
+    kn: 'kn-IN',
+    pa: 'pa-IN',
+    ml: 'ml-IN',
+    or: 'or-IN',
+    as: 'as-IN',
+    ur: 'ur-IN',
+    sa: 'sa-IN',
+    es: 'es-ES',
+    ne: 'ne-NP'
+  };
+  const currentLocale = localeMap[language] || 'hi-IN';
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
-  // Trigger scroll whenever messages array updates (new message or streaming update)
   useEffect(() => {
     scrollToBottom()
   }, [messages])
@@ -157,8 +285,8 @@ export default function VoiceAssistant() {
   useEffect(() => {
     return () => {
       cleanupAudio();
-      if (sessionRef.current) {
-        sessionRef.current.disconnect()
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
     }
   }, [])
@@ -173,9 +301,11 @@ export default function VoiceAssistant() {
       mediaStreamRef.current = null;
     }
   }
- const endhistory = () =>{
-  const res = fetch('http://localhost:3000/api/chat/end');
- }
+
+  const endhistory = () => {
+    fetch('http://localhost:3000/api/chat/end', { method: 'POST' });
+  }
+
   const setupAudioVisualizer = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -192,60 +322,151 @@ export default function VoiceAssistant() {
     }
   };
 
+  useEffect(() => {
+    const checkTtsSupport = () => {
+      if (typeof window === "undefined" || !window.speechSynthesis) return;
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) return; // Voices loaded dynamically later
+
+      const cleanLocale = currentLocale.toLowerCase().replace('_', '-');
+      const voiceExists = voices.some(v => {
+        const vLang = v.lang.toLowerCase().replace('_', '-');
+        return vLang === cleanLocale || vLang.startsWith(language + '-');
+      });
+
+      setTtsSupported(voiceExists);
+    };
+
+    checkTtsSupport();
+
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = checkTtsSupport;
+    }
+  }, [language, currentLocale]);
+
+  const speakText = (text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+
+    // Clean markdown characters out of speech
+    const cleanText = text
+      .replace(/[\*\#\`\_]/g, "")
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    
+    const voices = window.speechSynthesis.getVoices();
+    const cleanLocale = currentLocale.toLowerCase().replace('_', '-');
+    
+    // Find matching voice
+    const voice = voices.find(v => {
+      const vLang = v.lang.toLowerCase().replace('_', '-');
+      return vLang === cleanLocale || vLang.startsWith(language + '-');
+    });
+
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      const backupVoice = voices.find(v => v.lang.toLowerCase().startsWith(language));
+      if (backupVoice) {
+        utterance.voice = backupVoice;
+        utterance.lang = backupVoice.lang;
+      } else {
+        // Fall back to default browser voice if no voice packs found
+        utterance.lang = 'en-US'; 
+      }
+    }
+
+    utterance.onstart = () => {
+      setIsPlaying(true);
+    };
+    utterance.onend = () => {
+      setIsPlaying(false);
+    };
+    utterance.onerror = () => {
+      setIsPlaying(false);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleStartRecording = async () => {
     try {
       setIsRecording(true);
+      setSpeechError(null);
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setIsPlaying(false);
+
       await setupAudioVisualizer();
 
-      const res = await fetch('http://localhost:3000/api/session');
-      const { ephemeralKey } = await res.json();
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
+        setIsRecording(false);
+        cleanupAudio();
+        return;
+      }
 
-      const agent = new RealtimeAgent({
-        name: "Kisan Sahayak",
-        instructions: "You are a helpful agricultural assistant..., you are regionalised for india, so speak in hindi at first and if the user speaks in a seperate indian language, talk in the same language",
-      });
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = currentLocale;
 
-      const session = new RealtimeSession(agent);
-      sessionRef.current = session;
-
-      await session.connect({ apiKey: ephemeralKey });
-
-      session.on('conversation.item.created', (item: any) => {
-        if (item.role === 'assistant') {
-          setIsPlaying(true);
+      recognition.onresult = async (event: any) => {
+        const transcript = event.results[0]?.[0]?.transcript;
+        if (transcript) {
+          console.log("Speech recognition output:", transcript);
+          handleStopRecording();
+          await handleSendMessageWithText(transcript);
         }
-      });
+      };
 
-      // --- 3. NEW: Capture Voice Response to Chat History ---
-      session.on('conversation.item.completed', (item: any) => {
-        if (item.role === 'assistant') {
-          setIsPlaying(false);
-          // If the item has a transcript or content, add it to the chat UI
-          const content = item.content?.[0]?.transcript || item.content?.[0]?.text;
-          if (content) {
-             setMessages(prev => [...prev, { type: 'assistant', text: content }]);
-          }
+      recognition.onerror = (err: any) => {
+        console.error("Speech recognition error:", err.error, err.message);
+        if (err.error === 'aborted' || err.error === 'no-speech') {
+          handleStopRecording();
+          return;
         }
-      });
+        let errorMsg = "Speech recognition failed.";
+        if (err.error === 'not-allowed') {
+          errorMsg = "Microphone access denied. Please allow microphone permissions in your browser settings.";
+        } else if (err.error === 'network') {
+          errorMsg = "Network connection error. Google Speech Recognition requires an active internet connection.";
+        } else if (err.error === 'language-not-supported') {
+          errorMsg = `Language locale (${currentLocale}) is not supported for speech recognition in this browser.`;
+        }
+        setSpeechError(errorMsg);
+        setTimeout(() => setSpeechError(null), 6000);
+        handleStopRecording();
+      };
 
-      session.on('input_audio_buffer.speech_started', () => {
-         // Optional: You could add a "Listening..." temporary message here
-      });
+      recognition.onend = () => {
+        setIsRecording(false);
+        cleanupAudio();
+        setAnalyserNode(null);
+      };
 
+      recognition.start();
     } catch (error) {
-      console.error("Failed to start session:", error);
+      console.error("Failed to start recording:", error);
       setIsRecording(false);
       cleanupAudio();
     }
   }
 
   const handleStopRecording = () => {
-    if (sessionRef.current) {
-      sessionRef.current.disconnect();
-      sessionRef.current = null;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
     }
     setIsRecording(false);
-    setIsPlaying(false);
     cleanupAudio();
     setAnalyserNode(null);
   }
@@ -258,13 +479,9 @@ export default function VoiceAssistant() {
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!input.trim()) return;
-    const userText = input.trim();
-
+  const handleSendMessageWithText = async (textToSend: string) => {
     // Add user message
-    setMessages(prev => [...prev, { type: "user", text: userText }]);
-    setInput("");
+    setMessages(prev => [...prev, { type: "user", text: textToSend }]);
 
     // Create placeholder for assistant message
     setMessages(prev => [...prev, { type: "assistant", text: "" }]);
@@ -273,7 +490,7 @@ export default function VoiceAssistant() {
       const response = await fetch("http://localhost:3000/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify({ message: textToSend, language })
       });
 
       const reader = response.body?.getReader();
@@ -289,7 +506,6 @@ export default function VoiceAssistant() {
         const chunk = decoder.decode(value);
         fullText += chunk;
 
-        // Stream into UI - This will trigger the useEffect to scroll
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1] = {
@@ -299,13 +515,23 @@ export default function VoiceAssistant() {
           return updated;
         });
       }
+
+      // Read response out loud
+      speakText(fullText);
     } catch (err) {
       console.error("Streaming failed", err);
       setMessages(prev => [
         ...prev,
-        { type: "assistant", text: "Maaf kijiye, kuch gadbad ho gayi." }
+        { type: "assistant", text: "माफ़ कीजिये, कुछ गड़बड़ हो गई।" }
       ]);
     }
+  };
+
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
+    const userText = input.trim();
+    setInput("");
+    await handleSendMessageWithText(userText);
   };
 
   return (
@@ -334,6 +560,11 @@ export default function VoiceAssistant() {
                         : 'bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200'
                     }`}
                   >
+                    {msg.image && (
+                      <div className="mb-2 overflow-hidden rounded-lg border border-black/10">
+                        <img src={msg.image} alt="Crop scan" className="max-w-[240px] max-h-[180px] object-cover" />
+                      </div>
+                    )}
                     <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
                     {/* Optional: Add a blinking cursor for empty streaming messages */}
                     {msg.type === 'assistant' && msg.text === '' && (
@@ -350,14 +581,30 @@ export default function VoiceAssistant() {
             <div className="p-4 bg-slate-50 border-t">
               <div className="flex gap-2">
                 <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="rounded-full w-10 h-10 p-0 bg-white border-slate-300 hover:bg-slate-100 shrink-0"
+                  disabled={analyzingImage}
+                >
+                  <Camera className="w-5 h-5 text-slate-500" />
+                </Button>
+                <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   placeholder="Type a question manually..."
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  disabled={analyzingImage}
                 />
-                <Button onClick={handleSendMessage} className="rounded-full w-10 h-10 p-0 bg-green-600 hover:bg-green-700">
+                <Button onClick={handleSendMessage} className="rounded-full w-10 h-10 p-0 bg-green-600 hover:bg-green-700" disabled={analyzingImage}>
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
@@ -408,9 +655,21 @@ export default function VoiceAssistant() {
                   <p className="text-slate-500 text-sm">Mic is off</p>
                 )}
               </div>
-              <Button onClick={endhistory}>
-                <text>Delete history</text>
+              {speechError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-xs text-center font-medium animate-pulse leading-relaxed">
+                  ⚠️ {speechError}
+                </div>
+              )}
+
+              <Button onClick={endhistory} variant="destructive" className="w-full">
+                Delete history
               </Button>
+
+              {!ttsSupported && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-lg text-xs text-left leading-relaxed">
+                  ⚠️ <strong>TTS voice not installed:</strong> Your browser does not have a Text-to-Speech voice installed for this language. The translation is shown in the chat window. Try using <strong>Microsoft Edge</strong> which supports online neural voices for all 10 Indian languages.
+                </div>
+              )}
               {/* Quick Actions */}
               <div className="space-y-2 pt-2">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Quick Ask</p>

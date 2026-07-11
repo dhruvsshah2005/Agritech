@@ -2,8 +2,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { authenticateUser } from "./Auth/Authentication";
 
@@ -17,11 +16,11 @@ app.use(
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
  * Health check
@@ -45,85 +44,83 @@ app.get("/test-auth", authenticateUser, (req, res) => {
 });
 
 /**
- * Realtime ephemeral session (UNCHANGED)
+ * Ephemeral session (Mocked for Web Speech fallback)
  */
 app.get("/api/session", async (req, res) => {
-  try {
-    const sessionConfig = JSON.stringify({
-      session: {
-        type: "realtime",
-        model: "gpt-realtime",
-        audio: {
-          output: { voice: "marin" }
-        }
-      }
-    });
-
-    const response = await fetch(
-      "https://api.openai.com/v1/realtime/client_secrets",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: sessionConfig
-      }
-    );
-
-    const data = await response.json();
-    console.log(data)
-    if (!response.ok) {
-      return res.status(500).json(data);
-    }
-
-    res.json({
-      ephemeralKey: data.value
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to create session" });
-  }
+  res.json({
+    ephemeralKey: "dummy-key-for-web-speech"
+  });
 });
 
+interface GeminiMessage {
+  role: "user" | "model";
+  parts: { text: string }[];
+}
 
-const chatHistory: ChatCompletionMessageParam[] = [];
+const chatHistory: GeminiMessage[] = [];
 
 app.post("/api/chat/stream", async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, language } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    // 1. Add the new user message to history
-    chatHistory.push({ role: "user", content: message });
-
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      // 2. Send the entire history to OpenAI
-      messages: chatHistory,
-      stream: true
+    const languageNames: Record<string, string> = {
+      hi: "Hindi",
+      en: "English",
+      bn: "Bengali",
+      te: "Telugu",
+      mr: "Marathi",
+      ta: "Tamil",
+      gu: "Gujarati",
+      kn: "Kannada",
+      pa: "Punjabi",
+      ml: "Malayalam",
+      or: "Odia",
+      as: "Assamese",
+      ur: "Urdu",
+      sa: "Sanskrit",
+      es: "Spanish",
+      ne: "Nepali"
+    };
+    const targetLanguage = languageNames[language || "hi"] || "Hindi";
+
+    // Instantiate model with dynamic systemInstruction for this request
+    const sessionModel = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: `You are Kisan Sahayak, a helpful Indian agricultural assistant. You must respond entirely in the native script of ${targetLanguage}. Keep your answers concise, practical, and friendly. If the user greets you, greet them back warmly in ${targetLanguage}.`
     });
+
+    // Initialize the chat session with existing history
+    const chat = sessionModel.startChat({
+      history: chatHistory,
+      generationConfig: {
+        maxOutputTokens: 2000,
+      }
+    });
+
+    const result = await chat.sendMessageStream(message);
 
     let assistantContent = "";
 
-    for await (const chunk of stream) {
-      const token = chunk.choices[0]?.delta?.content;
+    for await (const chunk of result.stream) {
+      const token = chunk.text();
 
       if (token) {
-        // 3. Accumulate the full response internally
         assistantContent += token;
         res.write(token);
       }
     }
 
-    // 4. Save the full assistant response to history
-    chatHistory.push({ role: "assistant", content: assistantContent });
+    // Append both messages to local history ONLY after successful completion
+    chatHistory.push({ role: "user", parts: [{ text: message }] });
+    chatHistory.push({ role: "model", parts: [{ text: assistantContent }] });
 
     res.end();
   } catch (err) {
@@ -134,20 +131,17 @@ app.post("/api/chat/stream", async (req, res) => {
 
 app.post("/api/chat/end", (req, res) => {
   try {
-    // 1. Clear the array in-place (works even if chatHistory is const)
     chatHistory.length = 0;
-
-    // 2. Send a success confirmation
     res.status(200).json({ message: "Chat history has been reset." });
-    
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to reset chat history" });
   }
 });
+
 app.post("/api/plant-disease/analyze", async (req, res) => {
   try {
-    const { imageBase64 } = req.body;
+    const { imageBase64, language } = req.body;
 
     if (!imageBase64) {
       return res.status(400).json({
@@ -155,38 +149,42 @@ app.post("/api/plant-disease/analyze", async (req, res) => {
       });
     }
 
-    /**
-     * Send image to OpenAI vision model
-     */
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an agricultural plant pathology expert. Analyze the plant image and return a short disease diagnosis and treatment recommendation. if the crop looks fine, talk about the health of the plant, etc"
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Identify any plant disease visible in this image."
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageBase64
-              }
-            }
-          ]
-        }
-      ]
-    });
+    // Parse base64 string
+    const parts = imageBase64.split(";base64,");
+    const mimeType = parts[0].split(":")[1] || "image/jpeg";
+    const rawBase64 = parts[1] || imageBase64;
 
-    const result =
-      response.choices[0]?.message?.content ||
-      "Unable to determine plant condition.";
+    const imagePart = {
+      inlineData: {
+        data: rawBase64,
+        mimeType: mimeType
+      }
+    };
+
+    const languageNames: Record<string, string> = {
+      hi: "Hindi",
+      en: "English",
+      bn: "Bengali",
+      te: "Telugu",
+      mr: "Marathi",
+      ta: "Tamil",
+      gu: "Gujarati",
+      kn: "Kannada",
+      pa: "Punjabi",
+      ml: "Malayalam",
+      or: "Odia",
+      as: "Assamese",
+      ur: "Urdu",
+      sa: "Sanskrit",
+      es: "Spanish",
+      ne: "Nepali"
+    };
+    const targetLanguage = languageNames[language || "hi"] || "Hindi";
+
+    const prompt = `You are an agricultural plant pathology expert. Analyze the plant image and return a short disease diagnosis and treatment recommendation. If the crop looks fine, talk about the health of the plant. You MUST reply entirely in the native script of ${targetLanguage}.`;
+
+    const response = await model.generateContent([prompt, imagePart]);
+    const result = response.response.text() || "Unable to determine plant condition.";
 
     res.json({
       diagnosis: result
@@ -198,8 +196,10 @@ app.post("/api/plant-disease/analyze", async (req, res) => {
     });
   }
 });
+
 const PORT = 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+

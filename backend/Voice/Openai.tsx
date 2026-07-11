@@ -8,6 +8,8 @@ const agent = new RealtimeAgent({
 const session = new RealtimeSession(agent);
 
 // Automatically connects your microphone and audio output
-await session.connect({
-    apiKey: process.env.OPENAI_KEY,
-});
+export async function connectSession() {
+    await session.connect({
+        apiKey: process.env.OPENAI_KEY || "",
+    });
+}
