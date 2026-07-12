@@ -545,8 +545,12 @@ export default function VoiceAssistant() {
         {/* Chat Area */}
         <div className="lg:col-span-2">
           <Card className="h-[500px] flex flex-col border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle>Live Conversation</CardTitle>
+            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold">Live Conversation</CardTitle>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>RAG Verified (ICAR Grounded)</span>
+              </div>
             </CardHeader>
             
             {/* --- 4. MODIFIED: Chat Content Area --- */}

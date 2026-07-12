@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useLanguage } from '@/lib/i18n';
+import EmergencyAlertBanner from '@/components/EmergencyAlertBanner';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -108,6 +109,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Real-time Socket.IO Emergency Alerts Overlay */}
+      <EmergencyAlertBanner />
 
       {/* ═══════════════════════════════════════════════
           MAIN CONTENT
